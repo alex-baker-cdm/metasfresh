@@ -52,7 +52,7 @@
 }
 
 .command-palette-category-header {
-  padding: 8px 16px;
+  padding: 8px 16px 4px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -64,6 +64,57 @@
   float: right;
   color: #ccc;
   font-weight: normal;
+}
+
+.command-palette-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.command-palette-item:hover,
+.command-palette-item-selected {
+  background-color: #f0f4ff;
+}
+
+.command-palette-item-icon {
+  width: 24px;
+  margin-right: 12px;
+  color: #666;
+  text-align: center;
+}
+
+.command-palette-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.command-palette-item-title {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-palette-item-subtitle {
+  font-size: 12px;
+  color: #999;
+}
+
+.command-palette-no-results {
+  padding: 24px 16px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.command-palette-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
 }
 
 .command-palette-result-item {

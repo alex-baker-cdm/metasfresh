@@ -9,6 +9,7 @@ const keymaps = {
   OPEN_SIDEBAR_MENU_0: `${mod}+5`,
   OPEN_SIDEBAR_MENU_1: `${mod}+6`,
   OPEN_SIDEBAR_MENU_2: `${mod}+7`,
+  OPEN_GLOBAL_SEARCH: 'Ctrl+K',
   DOC_STATUS: `${mod}+I`,
 
   TEXT_START: 'Home',

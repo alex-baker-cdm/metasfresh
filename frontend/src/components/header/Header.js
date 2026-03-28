@@ -19,6 +19,9 @@ import { setBreadcrumb, updateBreadcrumb } from '../../actions/MenuActions';
 
 import keymap from '../../shortcuts/keymap';
 import GlobalContextShortcuts from '../keyshortcuts/GlobalContextShortcuts';
+import GlobalSearchBar from '../globalSearch/GlobalSearchBar';
+import CommandPalette from '../globalSearch/CommandPalette';
+import { openGlobalSearch } from '../../actions/GlobalSearchActions';
 
 import WidgetWrapper from '../../containers/WidgetWrapper';
 import Indicator from '../app/Indicator';
@@ -815,6 +818,8 @@ class Header extends PureComponent {
                   </div>
                 )}
 
+                <GlobalSearchBar />
+
                 <div
                   className={classnames(
                     'header-item-container',
@@ -1006,7 +1011,9 @@ class Header extends PureComponent {
           }
           handleEditModeToggle={handleEditModeToggle}
           closeOverlays={this.closeOverlays}
+          handleGlobalSearch={() => this.props.dispatch(openGlobalSearch())}
         />
+        <CommandPalette />
       </div>
     );
   }

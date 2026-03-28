@@ -20,7 +20,7 @@ export const SEARCHABLE_ENTITIES = [
  * @returns {Promise<Array>} flattened menu results
  */
 export function searchMenuItems(query) {
-  return queryPathsRequest(query, 9, true).then((response) =>
+  return queryPathsRequest(query, 9).then((response) =>
     flattenLastElem(response.data)
   );
 }

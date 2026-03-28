@@ -2,14 +2,18 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import FocusTrap from 'focus-trap-react';
+import debounce from 'lodash/debounce';
 
 import {
   closeGlobalSearch,
   setGlobalSearchQuery,
-  setDocumentResults,
   setGlobalSearchLoading,
+  setMenuResults,
+  setDocumentResults,
 } from '../../actions/GlobalSearchActions';
-import { searchAllDocuments } from '../../api/globalSearch';
+import { searchMenuItems, searchAllDocuments } from '../../api/globalSearch';
+import { requestRedirect } from '../../reducers/redirect';
+import CommandPaletteResults from './CommandPaletteResults';
 import CommandPaletteDocResults from './CommandPaletteDocResults';
 
 import './CommandPalette.css';
@@ -18,54 +22,88 @@ const DEBOUNCE_DELAY = 300;
 
 const CommandPalette = ({ isOpen, query, dispatch }) => {
   const inputRef = useRef(null);
-  const debounceRef = useRef(null);
+  const requestIdRef = useRef(0);
+
+  const performSearch = useCallback(
+    debounce((searchQuery) => {
+      if (!searchQuery) {
+        dispatch(setMenuResults([]));
+        dispatch(setGlobalSearchLoading(false));
+        return;
+      }
+
+      const currentRequestId = ++requestIdRef.current;
+
+      dispatch(setGlobalSearchLoading(true));
+
+      // Search menu items
+      searchMenuItems(searchQuery)
+        .then((results) => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults(results));
+          }
+        })
+        .catch(() => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults([]));
+          }
+        });
+
+      // Search documents across entity types
+      if (searchQuery.trim().length >= 2) {
+        searchAllDocuments(searchQuery).then((resultsByWindowId) => {
+          if (currentRequestId === requestIdRef.current) {
+            Object.keys(resultsByWindowId).forEach((windowId) => {
+              const { caption, results } = resultsByWindowId[windowId];
+              dispatch(setDocumentResults(windowId, caption, results));
+            });
+            dispatch(setGlobalSearchLoading(false));
+          }
+        });
+      } else {
+        dispatch(setGlobalSearchLoading(false));
+      }
+    }, DEBOUNCE_DELAY),
+    [dispatch]
+  );
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isOpen]);
 
-  // Cleanup debounce timer on unmount
+    if (!isOpen) {
+      performSearch.cancel();
+      requestIdRef.current++;
+    }
+  }, [isOpen, performSearch]);
+
+  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
+      performSearch.cancel();
     };
-  }, []);
+  }, [performSearch]);
 
-  const performDocumentSearch = useCallback(
-    (searchQuery) => {
-      if (!searchQuery || searchQuery.trim().length < 2) {
-        return;
-      }
+  const handleItemClick = (item) => {
+    dispatch(closeGlobalSearch());
 
-      dispatch(setGlobalSearchLoading(true));
+    if (item.type === 'newRecord') {
+      dispatch(requestRedirect(`/window/${item.elementId}/new`));
+    } else {
+      dispatch(requestRedirect(`/window/${item.elementId}`));
+    }
+  };
 
-      searchAllDocuments(searchQuery).then((resultsByWindowId) => {
-        Object.keys(resultsByWindowId).forEach((windowId) => {
-          const { caption, results } = resultsByWindowId[windowId];
-          dispatch(setDocumentResults(windowId, caption, results));
-        });
-        dispatch(setGlobalSearchLoading(false));
-      });
-    },
-    [dispatch]
-  );
+  const handleResultClick = (windowId, rowId) => {
+    dispatch(closeGlobalSearch());
 
-  const handleResultClick = useCallback(
-    (windowId, rowId) => {
-      dispatch(closeGlobalSearch());
-
-      if (rowId) {
-        window.location.href = `/window/${windowId}/${rowId}`;
-      } else {
-        window.location.href = `/window/${windowId}`;
-      }
-    },
-    [dispatch]
-  );
+    if (rowId) {
+      window.location.href = `/window/${windowId}/${rowId}`;
+    } else {
+      window.location.href = `/window/${windowId}`;
+    }
+  };
 
   if (!isOpen) {
     return null;
@@ -87,14 +125,14 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
     const value = e.target.value;
     dispatch(setGlobalSearchQuery(value));
 
-    // Debounce the document search
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
+    if (value) {
+      dispatch(setGlobalSearchLoading(true));
+    } else {
+      dispatch(setMenuResults([]));
+      dispatch(setGlobalSearchLoading(false));
     }
 
-    debounceRef.current = setTimeout(() => {
-      performDocumentSearch(value);
-    }, DEBOUNCE_DELAY);
+    performSearch(value);
   };
 
   return (
@@ -117,6 +155,7 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
             />
           </div>
           <div className="command-palette-results">
+            <CommandPaletteResults onItemClick={handleItemClick} />
             <CommandPaletteDocResults onResultClick={handleResultClick} />
           </div>
         </div>
