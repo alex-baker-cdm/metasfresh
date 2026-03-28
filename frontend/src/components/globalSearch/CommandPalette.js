@@ -11,9 +11,11 @@ import {
   setMenuResults,
   setDocumentResults,
   setSelectedIndex,
+  setRecentDocuments,
 } from '../../actions/GlobalSearchActions';
 import { searchMenuItems, searchAllDocuments } from '../../api/globalSearch';
 import { requestRedirect } from '../../reducers/redirect';
+import RecentDocumentsService from '../../services/RecentDocumentsService';
 
 import './CommandPalette.css';
 
@@ -79,6 +81,7 @@ const CommandPalette = ({
   recentDocuments,
   menuResults,
   documentResults,
+  me,
   dispatch,
 }) => {
   const inputRef = useRef(null);
@@ -98,6 +101,14 @@ const CommandPalette = ({
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+    }
+
+    if (isOpen) {
+      const userId = me && (me.userId || me.username);
+      if (userId) {
+        const docs = RecentDocumentsService.getRecentDocuments(userId);
+        dispatch(setRecentDocuments(docs));
+      }
     }
 
     if (!isOpen) {
@@ -418,6 +429,7 @@ CommandPalette.propTypes = {
   recentDocuments: PropTypes.array.isRequired,
   menuResults: PropTypes.array.isRequired,
   documentResults: PropTypes.object.isRequired,
+  me: PropTypes.object,
   dispatch: PropTypes.func.isRequired,
 };
 
@@ -428,6 +440,7 @@ const mapStateToProps = (state) => ({
   recentDocuments: state.globalSearch.recentDocuments,
   menuResults: state.globalSearch.menuResults,
   documentResults: state.globalSearch.documentResults,
+  me: state.appHandler.me,
 });
 
 export default connect(mapStateToProps)(CommandPalette);

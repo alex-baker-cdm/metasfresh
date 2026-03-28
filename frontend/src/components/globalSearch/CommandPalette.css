@@ -136,12 +136,49 @@
   border-width: 0;
 }
 
+.command-palette-recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px 4px;
+}
+
+.command-palette-recent-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.5px;
+}
+
+.command-palette-clear-btn {
+  font-size: 11px;
+  color: #999;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.command-palette-clear-btn:hover {
+  color: #666;
+  text-decoration: underline;
+}
+
+.command-palette-empty-state {
+  padding: 24px 16px;
+  text-align: center;
+  color: #ccc;
+  font-size: 13px;
+}
+
 .command-palette-result-item {
   display: flex;
   align-items: center;
   padding: 8px 16px;
   cursor: pointer;
   transition: background 0.15s;
+  gap: 10px;
 }
 
 .command-palette-result-item:hover {
@@ -154,6 +191,11 @@
   font-size: 16px;
   width: 20px;
   text-align: center;
+}
+
+.command-palette-result-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .command-palette-result-text {
