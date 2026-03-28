@@ -7,11 +7,16 @@ import FocusTrap from 'focus-trap-react';
 import {
   closeGlobalSearch,
   setGlobalSearchQuery,
+  setGlobalSearchLoading,
+  setMenuResults,
   setSelectedIndex,
 } from '../../actions/GlobalSearchActions';
+import { searchMenuItems } from '../../api/globalSearch';
 import { requestRedirect } from '../../reducers/redirect';
 
 import './CommandPalette.css';
+
+const DEBOUNCE_DELAY = 300;
 
 /**
  * @summary Builds a flat array of all navigable result items across categories.
@@ -77,6 +82,8 @@ const CommandPalette = ({
 }) => {
   const inputRef = useRef(null);
   const resultsRef = useRef(null);
+  const requestIdRef = useRef(0);
+  const debounceTimerRef = useRef(null);
 
   const allResults = useMemo(
     () =>
@@ -91,7 +98,23 @@ const CommandPalette = ({
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
+
+    if (!isOpen) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      requestIdRef.current++;
+    }
   }, [isOpen]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -165,7 +188,37 @@ const CommandPalette = ({
   };
 
   const handleInputChange = (e) => {
-    dispatch(setGlobalSearchQuery(e.target.value));
+    const value = e.target.value;
+    dispatch(setGlobalSearchQuery(value));
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (!value) {
+      dispatch(setMenuResults([]));
+      dispatch(setGlobalSearchLoading(false));
+      return;
+    }
+
+    dispatch(setGlobalSearchLoading(true));
+    const currentRequestId = ++requestIdRef.current;
+
+    debounceTimerRef.current = setTimeout(() => {
+      searchMenuItems(value)
+        .then((results) => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults(results));
+            dispatch(setGlobalSearchLoading(false));
+          }
+        })
+        .catch(() => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults([]));
+            dispatch(setGlobalSearchLoading(false));
+          }
+        });
+    }, DEBOUNCE_DELAY);
   };
 
   const handleItemClick = useCallback(
