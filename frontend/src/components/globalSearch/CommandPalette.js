@@ -9,16 +9,20 @@ import {
   setGlobalSearchQuery,
   setGlobalSearchLoading,
   setMenuResults,
+  setDocumentResults,
   setRecentDocuments,
 } from '../../actions/GlobalSearchActions';
-import { searchMenuItems } from '../../api/globalSearch';
+import { searchMenuItems, searchAllDocuments } from '../../api/globalSearch';
 import { requestRedirect } from '../../reducers/redirect';
 import CommandPaletteResults from './CommandPaletteResults';
+import CommandPaletteDocResults from './CommandPaletteDocResults';
 import RecentDocuments from './RecentDocuments';
 import RecentDocumentsService from '../../services/RecentDocumentsService';
 import history from '../../services/History';
 
 import './CommandPalette.css';
+
+const DEBOUNCE_DELAY = 300;
 
 const CommandPalette = ({ isOpen, query, me, dispatch }) => {
   const inputRef = useRef(null);
@@ -34,20 +38,36 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
 
       const currentRequestId = ++requestIdRef.current;
 
+      dispatch(setGlobalSearchLoading(true));
+
+      // Search menu items
       searchMenuItems(searchQuery)
         .then((results) => {
           if (currentRequestId === requestIdRef.current) {
             dispatch(setMenuResults(results));
-            dispatch(setGlobalSearchLoading(false));
           }
         })
         .catch(() => {
           if (currentRequestId === requestIdRef.current) {
             dispatch(setMenuResults([]));
+          }
+        });
+
+      // Search documents across entity types
+      if (searchQuery.trim().length >= 2) {
+        searchAllDocuments(searchQuery).then((resultsByWindowId) => {
+          if (currentRequestId === requestIdRef.current) {
+            Object.keys(resultsByWindowId).forEach((windowId) => {
+              const { caption, results } = resultsByWindowId[windowId];
+              dispatch(setDocumentResults(windowId, caption, results));
+            });
             dispatch(setGlobalSearchLoading(false));
           }
         });
-    }, 300),
+      } else {
+        dispatch(setGlobalSearchLoading(false));
+      }
+    }, DEBOUNCE_DELAY),
     [dispatch]
   );
 
@@ -69,6 +89,33 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
       requestIdRef.current++;
     }
   }, [isOpen, performSearch]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      performSearch.cancel();
+    };
+  }, [performSearch]);
+
+  const handleItemClick = (item) => {
+    dispatch(closeGlobalSearch());
+
+    if (item.type === 'newRecord') {
+      dispatch(requestRedirect(`/window/${item.elementId}/new`));
+    } else {
+      dispatch(requestRedirect(`/window/${item.elementId}`));
+    }
+  };
+
+  const handleResultClick = (windowId, rowId) => {
+    dispatch(closeGlobalSearch());
+
+    if (rowId) {
+      window.location.href = `/window/${windowId}/${rowId}`;
+    } else {
+      window.location.href = `/window/${windowId}`;
+    }
+  };
 
   if (!isOpen) {
     return null;
@@ -98,16 +145,6 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
     }
 
     performSearch(value);
-  };
-
-  const handleItemClick = (item) => {
-    dispatch(closeGlobalSearch());
-
-    if (item.type === 'newRecord') {
-      dispatch(requestRedirect(`/window/${item.elementId}/new`));
-    } else {
-      dispatch(requestRedirect(`/window/${item.elementId}`));
-    }
   };
 
   const handleRecentNavigate = (windowId, docId) => {
@@ -150,6 +187,7 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
               />
             )}
             <CommandPaletteResults onItemClick={handleItemClick} />
+            <CommandPaletteDocResults onResultClick={handleResultClick} />
           </div>
         </div>
       </div>
