@@ -6,16 +6,28 @@ import FocusTrap from 'focus-trap-react';
 import {
   closeGlobalSearch,
   setGlobalSearchQuery,
+  setRecentDocuments,
 } from '../../actions/GlobalSearchActions';
+import RecentDocuments from './RecentDocuments';
+import RecentDocumentsService from '../../services/RecentDocumentsService';
+import history from '../../services/History';
 
 import './CommandPalette.css';
 
-const CommandPalette = ({ isOpen, query, dispatch }) => {
+const CommandPalette = ({ isOpen, query, me, dispatch }) => {
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+    }
+
+    if (isOpen) {
+      const userId = me && (me.userId || me.username);
+      if (userId) {
+        const docs = RecentDocumentsService.getRecentDocuments(userId);
+        dispatch(setRecentDocuments(docs));
+      }
     }
   }, [isOpen]);
 
@@ -39,6 +51,19 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
     dispatch(setGlobalSearchQuery(e.target.value));
   };
 
+  const handleRecentNavigate = (windowId, docId) => {
+    dispatch(closeGlobalSearch());
+    history.push(`/window/${windowId}/${docId}`);
+  };
+
+  const handleClearRecent = () => {
+    const userId = me && (me.userId || me.username);
+    if (userId) {
+      const cleared = RecentDocumentsService.clearRecentDocuments(userId);
+      dispatch(setRecentDocuments(cleared));
+    }
+  };
+
   return (
     <FocusTrap>
       <div
@@ -58,7 +83,14 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
               onChange={handleInputChange}
             />
           </div>
-          <div className="command-palette-results" />
+          <div className="command-palette-results">
+            {!query && (
+              <RecentDocuments
+                onNavigate={handleRecentNavigate}
+                onClear={handleClearRecent}
+              />
+            )}
+          </div>
         </div>
       </div>
     </FocusTrap>
@@ -68,12 +100,14 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
 CommandPalette.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   query: PropTypes.string.isRequired,
+  me: PropTypes.object,
   dispatch: PropTypes.func.isRequired,
 };
 
 const mapStateToProps = (state) => ({
   isOpen: state.globalSearch.isOpen,
   query: state.globalSearch.query,
+  me: state.appHandler.me,
 });
 
 export default connect(mapStateToProps)(CommandPalette);
