@@ -60,6 +60,12 @@
   letter-spacing: 0.5px;
 }
 
+.command-palette-category-count {
+  float: right;
+  color: #ccc;
+  font-weight: normal;
+}
+
 .command-palette-item {
   padding: 8px 16px;
   cursor: pointer;
@@ -128,4 +134,56 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+.command-palette-result-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.command-palette-result-item:hover {
+  background: #f5f5f5;
+}
+
+.command-palette-result-item i {
+  color: #999;
+  margin-right: 10px;
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.command-palette-result-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.command-palette-result-title {
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-palette-result-subtitle {
+  font-size: 12px;
+  color: #999;
+}
+
+.command-palette-show-all {
+  display: block;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #2196F3;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.command-palette-show-all:hover {
+  text-decoration: underline;
 }

@@ -9,9 +9,10 @@ import {
   setGlobalSearchQuery,
   setGlobalSearchLoading,
   setMenuResults,
+  setDocumentResults,
   setSelectedIndex,
 } from '../../actions/GlobalSearchActions';
-import { searchMenuItems } from '../../api/globalSearch';
+import { searchMenuItems, searchAllDocuments } from '../../api/globalSearch';
 import { requestRedirect } from '../../reducers/redirect';
 
 import './CommandPalette.css';
@@ -205,19 +206,33 @@ const CommandPalette = ({
     const currentRequestId = ++requestIdRef.current;
 
     debounceTimerRef.current = setTimeout(() => {
+      // Search menu items
       searchMenuItems(value)
         .then((results) => {
           if (currentRequestId === requestIdRef.current) {
             dispatch(setMenuResults(results));
-            dispatch(setGlobalSearchLoading(false));
           }
         })
         .catch(() => {
           if (currentRequestId === requestIdRef.current) {
             dispatch(setMenuResults([]));
+          }
+        });
+
+      // Search documents across entity types
+      if (value.trim().length >= 2) {
+        searchAllDocuments(value).then((resultsByWindowId) => {
+          if (currentRequestId === requestIdRef.current) {
+            Object.keys(resultsByWindowId).forEach((windowId) => {
+              const { caption, results } = resultsByWindowId[windowId];
+              dispatch(setDocumentResults(windowId, caption, results));
+            });
             dispatch(setGlobalSearchLoading(false));
           }
         });
+      } else {
+        dispatch(setGlobalSearchLoading(false));
+      }
     }, DEBOUNCE_DELAY);
   };
 
