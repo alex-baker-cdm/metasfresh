@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import classnames from 'classnames';
 import FocusTrap from 'focus-trap-react';
-import debounce from 'lodash/debounce';
 
 import {
   closeGlobalSearch,
@@ -10,66 +10,93 @@ import {
   setGlobalSearchLoading,
   setMenuResults,
   setDocumentResults,
+  setSelectedIndex,
   setRecentDocuments,
 } from '../../actions/GlobalSearchActions';
 import { searchMenuItems, searchAllDocuments } from '../../api/globalSearch';
 import { requestRedirect } from '../../reducers/redirect';
-import CommandPaletteResults from './CommandPaletteResults';
-import CommandPaletteDocResults from './CommandPaletteDocResults';
-import RecentDocuments from './RecentDocuments';
 import RecentDocumentsService from '../../services/RecentDocumentsService';
-import history from '../../services/History';
 
 import './CommandPalette.css';
 
 const DEBOUNCE_DELAY = 300;
 
-const CommandPalette = ({ isOpen, query, me, dispatch }) => {
+/**
+ * @summary Builds a flat array of all navigable result items across categories.
+ * When query is empty, returns recent documents. When query is present, returns
+ * menu results followed by document results from all windows.
+ */
+function getAllResults({
+  query,
+  recentDocuments,
+  menuResults,
+  documentResults,
+}) {
+  const results = [];
+
+  if (!query) {
+    // Show recent documents when no query
+    recentDocuments.forEach((doc) => {
+      results.push({
+        type: 'recentDocument',
+        windowId: doc.windowId,
+        docId: doc.docId,
+        caption: doc.caption,
+      });
+    });
+  } else {
+    // Menu results
+    menuResults.forEach((item) => {
+      results.push({
+        type: item.type || 'window',
+        elementId: item.elementId,
+        caption: item.caption,
+        windowId: item.windowId,
+      });
+    });
+
+    // Document results from all windows
+    Object.keys(documentResults).forEach((windowId) => {
+      const group = documentResults[windowId];
+      if (group && group.results) {
+        group.results.forEach((doc) => {
+          results.push({
+            type: 'document',
+            windowId,
+            docId: doc.docId,
+            caption: doc.caption,
+          });
+        });
+      }
+    });
+  }
+
+  return results;
+}
+
+const CommandPalette = ({
+  isOpen,
+  query,
+  selectedIndex,
+  recentDocuments,
+  menuResults,
+  documentResults,
+  me,
+  dispatch,
+}) => {
   const inputRef = useRef(null);
+  const resultsRef = useRef(null);
   const requestIdRef = useRef(0);
+  const debounceTimerRef = useRef(null);
 
-  const performSearch = useCallback(
-    debounce((searchQuery) => {
-      if (!searchQuery) {
-        dispatch(setMenuResults([]));
-        dispatch(setGlobalSearchLoading(false));
-        return;
-      }
-
-      const currentRequestId = ++requestIdRef.current;
-
-      dispatch(setGlobalSearchLoading(true));
-
-      // Search menu items
-      searchMenuItems(searchQuery)
-        .then((results) => {
-          if (currentRequestId === requestIdRef.current) {
-            dispatch(setMenuResults(results));
-          }
-        })
-        .catch(() => {
-          if (currentRequestId === requestIdRef.current) {
-            dispatch(setMenuResults([]));
-          }
-        });
-
-      // Search documents across entity types
-      if (searchQuery.trim().length >= 2) {
-        searchAllDocuments(searchQuery).then((resultsByWindowId) => {
-          if (currentRequestId === requestIdRef.current) {
-            Object.keys(resultsByWindowId).forEach((windowId) => {
-              const { caption, results } = resultsByWindowId[windowId];
-              dispatch(setDocumentResults(windowId, caption, results));
-            });
-            dispatch(setGlobalSearchLoading(false));
-          }
-        });
-      } else {
-        dispatch(setGlobalSearchLoading(false));
-      }
-    }, DEBOUNCE_DELAY),
-    [dispatch]
+  const allResults = useMemo(
+    () =>
+      getAllResults({ query, recentDocuments, menuResults, documentResults }),
+    [query, recentDocuments, menuResults, documentResults]
   );
+
+  const totalResults = allResults.length;
+  const hasResults = totalResults > 0;
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -85,47 +112,86 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
     }
 
     if (!isOpen) {
-      performSearch.cancel();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       requestIdRef.current++;
     }
-  }, [isOpen, performSearch]);
+  }, [isOpen]);
 
   // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
-      performSearch.cancel();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
-  }, [performSearch]);
+  }, []);
 
-  const handleItemClick = (item) => {
-    dispatch(closeGlobalSearch());
-
-    if (item.type === 'newRecord') {
-      dispatch(requestRedirect(`/window/${item.elementId}/new`));
-    } else {
-      dispatch(requestRedirect(`/window/${item.elementId}`));
+  // Scroll selected item into view
+  useEffect(() => {
+    if (!resultsRef.current) return;
+    const selectedEl = resultsRef.current.querySelector(
+      `#command-palette-item-${selectedIndex}`
+    );
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest' });
     }
-  };
+  }, [selectedIndex]);
 
-  const handleResultClick = (windowId, rowId) => {
-    dispatch(closeGlobalSearch());
+  const handleSelectItem = useCallback(
+    (index) => {
+      const item = allResults[index];
+      if (!item) return;
 
-    if (rowId) {
-      window.location.href = `/window/${windowId}/${rowId}`;
-    } else {
-      window.location.href = `/window/${windowId}`;
-    }
-  };
-
-  if (!isOpen) {
-    return null;
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
       dispatch(closeGlobalSearch());
-    }
-  };
+
+      if (item.type === 'recentDocument' || item.type === 'document') {
+        dispatch(requestRedirect(`/window/${item.windowId}/${item.docId}`));
+      } else if (item.type === 'newRecord' && item.elementId) {
+        dispatch(requestRedirect(`/window/${item.elementId}/new`));
+      } else if (item.elementId) {
+        dispatch(requestRedirect(`/window/${item.elementId}`));
+      }
+    },
+    [allResults, dispatch]
+  );
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          if (totalResults > 0) {
+            dispatch(setSelectedIndex((selectedIndex + 1) % totalResults));
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (totalResults > 0) {
+            dispatch(
+              setSelectedIndex(
+                (selectedIndex - 1 + totalResults) % totalResults
+              )
+            );
+          }
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (totalResults > 0) {
+            handleSelectItem(selectedIndex);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          dispatch(closeGlobalSearch());
+          break;
+        default:
+          break;
+      }
+    },
+    [dispatch, selectedIndex, totalResults, handleSelectItem]
+  );
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -137,37 +203,186 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
     const value = e.target.value;
     dispatch(setGlobalSearchQuery(value));
 
-    if (value) {
-      dispatch(setGlobalSearchLoading(true));
-    } else {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (!value) {
       dispatch(setMenuResults([]));
       dispatch(setGlobalSearchLoading(false));
+      return;
     }
 
-    performSearch(value);
+    dispatch(setGlobalSearchLoading(true));
+    const currentRequestId = ++requestIdRef.current;
+
+    debounceTimerRef.current = setTimeout(() => {
+      // Search menu items
+      searchMenuItems(value)
+        .then((results) => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults(results));
+          }
+        })
+        .catch(() => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults([]));
+          }
+        });
+
+      // Search documents across entity types
+      if (value.trim().length >= 2) {
+        searchAllDocuments(value).then((resultsByWindowId) => {
+          if (currentRequestId === requestIdRef.current) {
+            Object.keys(resultsByWindowId).forEach((windowId) => {
+              const { caption, results } = resultsByWindowId[windowId];
+              dispatch(setDocumentResults(windowId, caption, results));
+            });
+            dispatch(setGlobalSearchLoading(false));
+          }
+        });
+      } else {
+        dispatch(setGlobalSearchLoading(false));
+      }
+    }, DEBOUNCE_DELAY);
   };
 
-  const handleRecentNavigate = (windowId, docId) => {
-    dispatch(closeGlobalSearch());
-    history.push(`/window/${windowId}/${docId}`);
-  };
+  const handleItemClick = useCallback(
+    (index) => {
+      handleSelectItem(index);
+    },
+    [handleSelectItem]
+  );
 
-  const handleClearRecent = () => {
-    const userId = me && (me.userId || me.username);
-    if (userId) {
-      const cleared = RecentDocumentsService.clearRecentDocuments(userId);
-      dispatch(setRecentDocuments(cleared));
+  if (!isOpen) {
+    return null;
+  }
+
+  // Build the rendered result sections with a running flat index
+  let flatIndex = 0;
+  const renderResultSections = () => {
+    const sections = [];
+
+    if (!query) {
+      // Recent documents
+      if (recentDocuments.length > 0) {
+        sections.push(
+          <div
+            key="header-recent"
+            role="presentation"
+            className="command-palette-category-header"
+          >
+            Recent Documents
+          </div>
+        );
+        recentDocuments.forEach((doc) => {
+          const idx = flatIndex++;
+          sections.push(
+            <div
+              key={`recent-${idx}`}
+              id={`command-palette-item-${idx}`}
+              role="option"
+              aria-selected={idx === selectedIndex}
+              className={classnames('command-palette-item', {
+                'command-palette-item-selected': idx === selectedIndex,
+              })}
+              onClick={() => handleItemClick(idx)}
+            >
+              {doc.caption || `Document ${doc.docId}`}
+            </div>
+          );
+        });
+      }
+    } else {
+      // Menu results
+      if (menuResults.length > 0) {
+        sections.push(
+          <div
+            key="header-menu"
+            role="presentation"
+            className="command-palette-category-header"
+          >
+            Menu Items
+          </div>
+        );
+        menuResults.forEach((item, i) => {
+          const idx = flatIndex++;
+          sections.push(
+            <div
+              key={`menu-${i}`}
+              id={`command-palette-item-${idx}`}
+              role="option"
+              aria-selected={idx === selectedIndex}
+              className={classnames('command-palette-item', {
+                'command-palette-item-selected': idx === selectedIndex,
+              })}
+              onClick={() => handleItemClick(idx)}
+            >
+              {item.caption}
+            </div>
+          );
+        });
+      }
+
+      // Document results
+      Object.keys(documentResults).forEach((windowId) => {
+        const group = documentResults[windowId];
+        if (!group || !group.results || group.results.length === 0) return;
+
+        sections.push(
+          <div
+            key={`header-doc-${windowId}`}
+            role="presentation"
+            className="command-palette-category-header"
+          >
+            {group.caption || `Window ${windowId}`}
+          </div>
+        );
+        group.results.forEach((doc, i) => {
+          const idx = flatIndex++;
+          sections.push(
+            <div
+              key={`doc-${windowId}-${i}`}
+              id={`command-palette-item-${idx}`}
+              role="option"
+              aria-selected={idx === selectedIndex}
+              className={classnames('command-palette-item', {
+                'command-palette-item-selected': idx === selectedIndex,
+              })}
+              onClick={() => handleItemClick(idx)}
+            >
+              {doc.caption || `Document ${doc.docId}`}
+            </div>
+          );
+        });
+      });
     }
+
+    return sections;
   };
+
+  const resultSections = renderResultSections();
+
+  // Determine the live region announcement
+  let announcement = '';
+  if (totalResults > 0) {
+    announcement = `${totalResults} results available`;
+  } else if (query) {
+    announcement = 'No results found';
+  }
 
   return (
-    <FocusTrap>
+    <FocusTrap focusTrapOptions={{ allowOutsideClick: true }}>
       <div
         className="command-palette-overlay screen-freeze"
         onClick={handleOverlayClick}
         onKeyDown={handleKeyDown}
       >
-        <div className="command-palette-modal">
+        <div
+          className="command-palette-modal"
+          role="dialog"
+          aria-label="Command Palette"
+        >
           <div className="command-palette-input-wrapper">
             <span className="command-palette-icon">&#128269;</span>
             <input
@@ -177,17 +392,29 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
               placeholder="Search documents, menus, and more..."
               value={query}
               onChange={handleInputChange}
+              role="combobox"
+              aria-expanded={hasResults}
+              aria-controls="command-palette-listbox"
+              aria-activedescendant={
+                selectedIndex >= 0 && hasResults
+                  ? `command-palette-item-${selectedIndex}`
+                  : undefined
+              }
+              aria-autocomplete="list"
+              aria-label="Search documents, menus, and more"
             />
           </div>
-          <div className="command-palette-results">
-            {!query && (
-              <RecentDocuments
-                onNavigate={handleRecentNavigate}
-                onClear={handleClearRecent}
-              />
-            )}
-            <CommandPaletteResults onItemClick={handleItemClick} />
-            <CommandPaletteDocResults onResultClick={handleResultClick} />
+          <div
+            ref={resultsRef}
+            className="command-palette-results"
+            role="listbox"
+            id="command-palette-listbox"
+            aria-label="Search results"
+          >
+            {resultSections}
+          </div>
+          <div aria-live="polite" className="sr-only">
+            {announcement}
           </div>
         </div>
       </div>
@@ -198,6 +425,10 @@ const CommandPalette = ({ isOpen, query, me, dispatch }) => {
 CommandPalette.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   query: PropTypes.string.isRequired,
+  selectedIndex: PropTypes.number.isRequired,
+  recentDocuments: PropTypes.array.isRequired,
+  menuResults: PropTypes.array.isRequired,
+  documentResults: PropTypes.object.isRequired,
   me: PropTypes.object,
   dispatch: PropTypes.func.isRequired,
 };
@@ -205,6 +436,10 @@ CommandPalette.propTypes = {
 const mapStateToProps = (state) => ({
   isOpen: state.globalSearch.isOpen,
   query: state.globalSearch.query,
+  selectedIndex: state.globalSearch.selectedIndex,
+  recentDocuments: state.globalSearch.recentDocuments,
+  menuResults: state.globalSearch.menuResults,
+  documentResults: state.globalSearch.documentResults,
   me: state.appHandler.me,
 });
 
