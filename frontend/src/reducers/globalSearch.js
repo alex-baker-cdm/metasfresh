@@ -51,6 +51,7 @@ export default function globalSearch(state = initialState, action) {
       return {
         ...state,
         menuResults: action.results,
+        selectedIndex: 0,
       };
 
     case SET_DOCUMENT_RESULTS:
@@ -63,12 +64,14 @@ export default function globalSearch(state = initialState, action) {
             results: action.results,
           },
         },
+        selectedIndex: 0,
       };
 
     case SET_RECENT_DOCUMENTS:
       return {
         ...state,
         recentDocuments: action.documents,
+        selectedIndex: 0,
       };
 
     case SET_SELECTED_INDEX:
