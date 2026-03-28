@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import FocusTrap from 'focus-trap-react';
@@ -6,18 +6,66 @@ import FocusTrap from 'focus-trap-react';
 import {
   closeGlobalSearch,
   setGlobalSearchQuery,
+  setDocumentResults,
+  setGlobalSearchLoading,
 } from '../../actions/GlobalSearchActions';
+import { searchAllDocuments } from '../../api/globalSearch';
+import CommandPaletteDocResults from './CommandPaletteDocResults';
 
 import './CommandPalette.css';
 
+const DEBOUNCE_DELAY = 300;
+
 const CommandPalette = ({ isOpen, query, dispatch }) => {
   const inputRef = useRef(null);
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  const performDocumentSearch = useCallback(
+    (searchQuery) => {
+      if (!searchQuery || searchQuery.trim().length < 2) {
+        return;
+      }
+
+      dispatch(setGlobalSearchLoading(true));
+
+      searchAllDocuments(searchQuery).then((resultsByWindowId) => {
+        Object.keys(resultsByWindowId).forEach((windowId) => {
+          const { caption, results } = resultsByWindowId[windowId];
+          dispatch(setDocumentResults(windowId, caption, results));
+        });
+        dispatch(setGlobalSearchLoading(false));
+      });
+    },
+    [dispatch]
+  );
+
+  const handleResultClick = useCallback(
+    (windowId, rowId) => {
+      dispatch(closeGlobalSearch());
+
+      if (rowId) {
+        window.location.href = `/window/${windowId}/${rowId}`;
+      } else {
+        window.location.href = `/window/${windowId}`;
+      }
+    },
+    [dispatch]
+  );
 
   if (!isOpen) {
     return null;
@@ -36,7 +84,17 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
   };
 
   const handleInputChange = (e) => {
-    dispatch(setGlobalSearchQuery(e.target.value));
+    const value = e.target.value;
+    dispatch(setGlobalSearchQuery(value));
+
+    // Debounce the document search
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      performDocumentSearch(value);
+    }, DEBOUNCE_DELAY);
   };
 
   return (
@@ -58,7 +116,9 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
               onChange={handleInputChange}
             />
           </div>
-          <div className="command-palette-results" />
+          <div className="command-palette-results">
+            <CommandPaletteDocResults onResultClick={handleResultClick} />
+          </div>
         </div>
       </div>
     </FocusTrap>
