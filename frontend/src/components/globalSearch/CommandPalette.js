@@ -1,23 +1,62 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import FocusTrap from 'focus-trap-react';
+import debounce from 'lodash/debounce';
 
 import {
   closeGlobalSearch,
   setGlobalSearchQuery,
+  setGlobalSearchLoading,
+  setMenuResults,
 } from '../../actions/GlobalSearchActions';
+import { searchMenuItems } from '../../api/globalSearch';
+import { requestRedirect } from '../../reducers/redirect';
+import CommandPaletteResults from './CommandPaletteResults';
 
 import './CommandPalette.css';
 
 const CommandPalette = ({ isOpen, query, dispatch }) => {
   const inputRef = useRef(null);
+  const requestIdRef = useRef(0);
+
+  const performSearch = useCallback(
+    debounce((searchQuery) => {
+      if (!searchQuery) {
+        dispatch(setMenuResults([]));
+        dispatch(setGlobalSearchLoading(false));
+        return;
+      }
+
+      const currentRequestId = ++requestIdRef.current;
+
+      searchMenuItems(searchQuery)
+        .then((results) => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults(results));
+            dispatch(setGlobalSearchLoading(false));
+          }
+        })
+        .catch(() => {
+          if (currentRequestId === requestIdRef.current) {
+            dispatch(setMenuResults([]));
+            dispatch(setGlobalSearchLoading(false));
+          }
+        });
+    }, 300),
+    [dispatch]
+  );
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isOpen]);
+
+    if (!isOpen) {
+      performSearch.cancel();
+      requestIdRef.current++;
+    }
+  }, [isOpen, performSearch]);
 
   if (!isOpen) {
     return null;
@@ -36,7 +75,27 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
   };
 
   const handleInputChange = (e) => {
-    dispatch(setGlobalSearchQuery(e.target.value));
+    const value = e.target.value;
+    dispatch(setGlobalSearchQuery(value));
+
+    if (value) {
+      dispatch(setGlobalSearchLoading(true));
+    } else {
+      dispatch(setMenuResults([]));
+      dispatch(setGlobalSearchLoading(false));
+    }
+
+    performSearch(value);
+  };
+
+  const handleItemClick = (item) => {
+    dispatch(closeGlobalSearch());
+
+    if (item.type === 'newRecord') {
+      dispatch(requestRedirect(`/window/${item.elementId}/new`));
+    } else {
+      dispatch(requestRedirect(`/window/${item.elementId}`));
+    }
   };
 
   return (
@@ -58,7 +117,9 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
               onChange={handleInputChange}
             />
           </div>
-          <div className="command-palette-results" />
+          <div className="command-palette-results">
+            <CommandPaletteResults onItemClick={handleItemClick} />
+          </div>
         </div>
       </div>
     </FocusTrap>
