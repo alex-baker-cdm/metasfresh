@@ -13,6 +13,7 @@ import actionsHandler from './actionsHandler';
 import widgetHandler from './widgetHandler';
 import tableQuickInputHandler from './tableQuickInputHandler';
 import redirect from './redirect';
+import globalSearch from './globalSearch';
 
 export const createRootReducer = () =>
   combineReducers({
@@ -29,4 +30,5 @@ export const createRootReducer = () =>
     widgetHandler,
     tableQuickInputHandler,
     redirect,
+    globalSearch,
   });

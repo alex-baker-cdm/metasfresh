@@ -1,0 +1,52 @@
+.command-palette-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  padding-top: 15vh;
+}
+
+.command-palette-modal {
+  background: #fff;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90vw;
+  max-height: 60vh;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
+}
+
+.command-palette-input-wrapper {
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+}
+
+.command-palette-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  padding: 4px 8px;
+}
+
+.command-palette-results {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+
+.command-palette-icon {
+  color: #999;
+  margin-right: 8px;
+  font-size: 18px;
+}
