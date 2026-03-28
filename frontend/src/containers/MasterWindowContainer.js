@@ -26,6 +26,8 @@ import {
 import MasterWindow from '../components/app/MasterWindow';
 import { toOrderBysCommaSeparatedString } from '../utils/windowHelpers';
 import { fetchTopActions } from '../actions/Actions';
+import { setRecentDocuments } from '../actions/GlobalSearchActions';
+import RecentDocumentsService from '../services/RecentDocumentsService';
 
 import history from '../services/History';
 import { useWebsocket } from '../hooks/useWebsocket';
@@ -36,8 +38,17 @@ import { useWebsocket } from '../hooks/useWebsocket';
  * @extends PureComponent
  */
 class MasterWindowContainer extends PureComponent {
-  componentDidUpdate() {
+  componentDidUpdate(prevProps) {
     this.handleURLParams();
+
+    const { params } = this.props;
+    const prevParams = prevProps.params;
+    if (
+      params.windowId !== prevParams.windowId ||
+      params.docId !== prevParams.docId
+    ) {
+      this.trackRecentDocument();
+    }
   }
 
   componentDidMount() {
@@ -46,6 +57,8 @@ class MasterWindowContainer extends PureComponent {
     if (!fullPath.includes('viewId')) {
       updateLastBackPage('');
     }
+
+    this.trackRecentDocument();
   }
 
   componentWillUnmount() {
@@ -53,6 +66,46 @@ class MasterWindowContainer extends PureComponent {
 
     clearMasterData();
     this.deleteTabsTables();
+  }
+
+  trackRecentDocument() {
+    const {
+      master,
+      params,
+      me,
+      breadcrumb,
+      setRecentDocuments: dispatchSetRecentDocuments,
+    } = this.props;
+
+    // Wait until document data is loaded
+    if (!master.data || !master.docId || !master.layout?.windowId) {
+      return;
+    }
+
+    const { windowId, docId } = params;
+    const userId = me.userId || me.username;
+    if (!userId) {
+      return;
+    }
+
+    // Get caption from breadcrumb (last element)
+    const caption =
+      breadcrumb && breadcrumb.length > 0
+        ? breadcrumb[breadcrumb.length - 1].caption
+        : `${docId}`;
+
+    // Get window caption from layout
+    const windowCaption = master.layout.caption || '';
+
+    const updatedList = RecentDocumentsService.addRecentDocument(userId, {
+      windowId,
+      docId,
+      caption,
+      windowCaption,
+      timestamp: Date.now(),
+    });
+
+    dispatchSetRecentDocuments(updatedList);
   }
 
   async onWebsocketEvent({ event }) {
@@ -343,6 +396,7 @@ MasterWindowContainer.propTypes = {
   updateTabLayout: PropTypes.func.isRequired,
   updateLastBackPage: PropTypes.func.isRequired,
   fetchTopActions: PropTypes.func.isRequired,
+  setRecentDocuments: PropTypes.func.isRequired,
 };
 
 const mapStateToProps = (state) => ({
@@ -373,6 +427,7 @@ export default connect(mapStateToProps, {
   updateTabLayout,
   updateLastBackPage,
   fetchTopActions,
+  setRecentDocuments,
 })(MasterWindowContainer);
 
 //

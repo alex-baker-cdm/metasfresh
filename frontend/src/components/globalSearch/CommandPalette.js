@@ -10,17 +10,21 @@ import {
   setGlobalSearchLoading,
   setMenuResults,
   setDocumentResults,
+  setRecentDocuments,
 } from '../../actions/GlobalSearchActions';
 import { searchMenuItems, searchAllDocuments } from '../../api/globalSearch';
 import { requestRedirect } from '../../reducers/redirect';
 import CommandPaletteResults from './CommandPaletteResults';
 import CommandPaletteDocResults from './CommandPaletteDocResults';
+import RecentDocuments from './RecentDocuments';
+import RecentDocumentsService from '../../services/RecentDocumentsService';
+import history from '../../services/History';
 
 import './CommandPalette.css';
 
 const DEBOUNCE_DELAY = 300;
 
-const CommandPalette = ({ isOpen, query, dispatch }) => {
+const CommandPalette = ({ isOpen, query, me, dispatch }) => {
   const inputRef = useRef(null);
   const requestIdRef = useRef(0);
 
@@ -70,6 +74,14 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+    }
+
+    if (isOpen) {
+      const userId = me && (me.userId || me.username);
+      if (userId) {
+        const docs = RecentDocumentsService.getRecentDocuments(userId);
+        dispatch(setRecentDocuments(docs));
+      }
     }
 
     if (!isOpen) {
@@ -135,6 +147,19 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
     performSearch(value);
   };
 
+  const handleRecentNavigate = (windowId, docId) => {
+    dispatch(closeGlobalSearch());
+    history.push(`/window/${windowId}/${docId}`);
+  };
+
+  const handleClearRecent = () => {
+    const userId = me && (me.userId || me.username);
+    if (userId) {
+      const cleared = RecentDocumentsService.clearRecentDocuments(userId);
+      dispatch(setRecentDocuments(cleared));
+    }
+  };
+
   return (
     <FocusTrap>
       <div
@@ -155,6 +180,12 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
             />
           </div>
           <div className="command-palette-results">
+            {!query && (
+              <RecentDocuments
+                onNavigate={handleRecentNavigate}
+                onClear={handleClearRecent}
+              />
+            )}
             <CommandPaletteResults onItemClick={handleItemClick} />
             <CommandPaletteDocResults onResultClick={handleResultClick} />
           </div>
@@ -167,12 +198,14 @@ const CommandPalette = ({ isOpen, query, dispatch }) => {
 CommandPalette.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   query: PropTypes.string.isRequired,
+  me: PropTypes.object,
   dispatch: PropTypes.func.isRequired,
 };
 
 const mapStateToProps = (state) => ({
   isOpen: state.globalSearch.isOpen,
   query: state.globalSearch.query,
+  me: state.appHandler.me,
 });
 
 export default connect(mapStateToProps)(CommandPalette);
