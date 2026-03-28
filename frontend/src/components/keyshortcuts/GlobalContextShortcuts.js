@@ -21,7 +21,18 @@ const GlobalContextShortcuts = ({
   handleUDToggle,
   handleOpenAdvancedEdit,
   handleNewDocument,
+  handleGlobalSearch,
 }) => {
+  useShortcut({
+    name: 'OPEN_GLOBAL_SEARCH',
+    handler: (event) => {
+      event.preventDefault();
+
+      handleGlobalSearch();
+
+      return true;
+    },
+  });
   useShortcut({
     name: 'OPEN_AVATAR_MENU',
     handler: (event) => {
@@ -235,6 +246,7 @@ GlobalContextShortcuts.propTypes = {
   handleUDToggle: PropTypes.func,
   handleOpenAdvancedEdit: PropTypes.func,
   handleNewDocument: PropTypes.func,
+  handleGlobalSearch: PropTypes.func,
 };
 
 GlobalContextShortcuts.defaultProps = {
@@ -251,6 +263,7 @@ GlobalContextShortcuts.defaultProps = {
   handleSidelistToggle: noOp,
   handleUDToggle: noOp,
   handleOpenAdvancedEdit: noOp,
+  handleGlobalSearch: noOp,
 };
 
 export default GlobalContextShortcuts;
