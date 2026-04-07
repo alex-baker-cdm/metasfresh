@@ -22,6 +22,15 @@ Additional information about the underlying principles of "copyleft" can be foun
 Note that your contribution remains yours and you can still license it as your own work under any other license you wish. 
 We are allowed to use it for metasfresh under the GPL version two, three, or any possible future version.
 
+# Development Environment
+
+To build and develop metasfresh, you need:
+
+- **Java 21 LTS** (Eclipse Temurin recommended): https://adoptium.net/
+- **Maven 3.9+**: https://maven.apache.org/
+- **Docker**: for running the full stack locally
+- **PostgreSQL**: for the database backend
+
 # How to contribute
 
 * If you don't yet have one, create a github account for yourself.

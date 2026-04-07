@@ -13,7 +13,7 @@ Synchronisation der Bestellungen aus Alberta mit den Aufträgen mit der Warenwir
 ## Requirements
 
 Building the API client library requires:
-1. Java 1.7+
+1. Java 21+
 2. Maven/Gradle
 
 ## Installation
