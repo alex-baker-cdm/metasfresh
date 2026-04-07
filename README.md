@@ -21,6 +21,13 @@ It has a 3-tier architecture with Rest-API and a Web User Frontend developed in 
 
 <img src="/images/screenshot-kpi-dashboard-new.png" width="33%" alt="KPI Dashboard"></img> <img src="/images/screenshot-sales-order-new.png" width="33%" alt="Sales Order Window"></img> <img src="/images/screenshot-material-receipt-new.png" width="33%" alt="Material Receipt Window"></img>
 
+## Requirements
+
+- **Java 21 LTS** (Eclipse Temurin recommended)
+- **Maven 3.9+**
+- **Docker** (for containerized deployment)
+- **PostgreSQL** (for the database backend)
+
 ## Installation
 We publish a stable Release of metasfresh every Friday - ok, we skip 1 week at the end of the year ;-) . You can download it [here](https://metasfresh.com/en/download/#latest-server-update).
 
