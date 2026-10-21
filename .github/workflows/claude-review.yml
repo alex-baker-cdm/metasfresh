@@ -28,7 +28,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout metasfresh (default branch)
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 1
 
@@ -45,7 +45,7 @@ jobs:
           git checkout "$PR_BRANCH"
 
       - name: Checkout mf15-ai-dev-support (private config)
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: metasfresh/mf15-ai-dev-support
           token: ${{ secrets.MF15_AI_DEV_SUPPORT_READ }}
@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Run Claude Code
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@a5a423f75c251dcbff8a74e99f83b2cb03c72bfa # v1.0.256
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: "--model ${{ steps.model.outputs.claude_model }}"
